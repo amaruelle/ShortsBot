@@ -1,7 +1,10 @@
-import telebot
-from yt_dlp import YoutubeDL
-import os
+import random
 import re
+import string
+import subprocess
+import requests
+import telebot
+import os
 
 # Get token environment variable
 token = os.environ.get('SHORTS_TOKEN')
@@ -9,14 +12,6 @@ if not token:
     raise ValueError('No token specified')
 
 bot = telebot.TeleBot(token)
-
-# yt-dlp settings
-ydl_opts = {
-    'format': 'best',
-    'outtmpl': 'downloads/%(id)s.%(ext)s',
-    'noplaylist': True,
-    'cookiefile': './config'
-}
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
@@ -29,29 +24,49 @@ def send_welcome(message):
     )
     bot.reply_to(message, welcome_text)
 
-def download_youtube_shorts(url):
-    with YoutubeDL(ydl_opts) as ydl:
-        info_dict = ydl.extract_info(url, download=True)
-        file_path = ydl.prepare_filename(info_dict)
-    return file_path
+def get_direct_video_url(url):
+    api_endpoint = "https://api.cobalt.tools/api/json"
+    headers = {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+    }
+    data = {
+        "url": url
+    }
+    response = requests.post(api_endpoint, headers=headers, json=data)
+    result = response.json()
+    return result["url"]
+
+
+def download_video_curl(url, output_filename):
+    command = ['curl', '-L', url, '-o', output_filename]
+    print(f"Running command: {''.join(command)}")
+    subprocess.run(command, check=True)
+
+
+def generate_random_filename(length=10):
+    characters = string.ascii_letters + string.digits
+    return ''.join(random.choice(characters) for _ in range(length)) + '.mp4'
+
 
 @bot.message_handler(func=lambda message: any(x in message.text for x in ['youtube.com/shorts/', 'youtu.be/shorts/', 'tiktok.com/', 'instagram.com/reel/']))
-def handle_video_links(message):
+def handle_message(message):
     urls = re.findall(r'(https?://(?:www\.)?(?:youtube\.com/shorts/|youtu\.be/shorts/|tiktok\.com/|instagram\.com/reel/)\S+)', message.text)
     if not urls:
         bot.reply_to(message, 'No video links found.')
         return
-    unique_urls = list(set(urls))  # Killing duplicates
-    download_msg = bot.reply_to(message, 'Downloading... 🕐')
+    unique_urls = list(set(urls))
     for url in unique_urls:
         try:
-            video_path = download_youtube_shorts(url)
-            with open(video_path, 'rb') as video:
+            print(f"Final URL: https://api.cobalt.tools/api/json?url={url}")
+            direct = get_direct_video_url(url)
+            filename = generate_random_filename()
+            download_video_curl(direct, filename)
+            with open(filename, 'rb') as video:
                 bot.send_video(message.chat.id, video)
-            os.remove(video_path)  # Deleting video after sending
+            os.remove(filename)
         except Exception as e:
-            bot.reply_to(message, f'There is an issue: {e}')
-    bot.delete_message(message.chat.id, download_msg.message_id)
+            bot.reply_to(message, f"There is an issue: {e}")
 
-# Bot listening
+
 bot.polling(none_stop=True)
