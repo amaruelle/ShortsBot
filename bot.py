@@ -15,6 +15,7 @@ ydl_opts = {
     'format': 'best',
     'outtmpl': 'downloads/%(id)s.%(ext)s',
     'noplaylist': True,
+    'cookiefile': './config'
 }
 
 @bot.message_handler(commands=['start'])
@@ -34,11 +35,11 @@ def download_youtube_shorts(url):
         file_path = ydl.prepare_filename(info_dict)
     return file_path
 
-@bot.message_handler(func=lambda message: 'youtube.com/shorts/' in message.text or 'youtu.be/shorts/' in message.text)
-def handle_youtube_shorts(message):
-    urls = re.findall(r'(https?://(?:www\.)?(?:youtube\.com/shorts/|youtu\.be/shorts/)\S+)', message.text)
+@bot.message_handler(func=lambda message: any(x in message.text for x in ['youtube.com/shorts/', 'youtu.be/shorts/', 'tiktok.com/', 'instagram.com/reel/']))
+def handle_video_links(message):
+    urls = re.findall(r'(https?://(?:www\.)?(?:youtube\.com/shorts/|youtu\.be/shorts/|tiktok\.com/|instagram\.com/reel/)\S+)', message.text)
     if not urls:
-        bot.reply_to(message, 'No YouTube Shorts links found.')
+        bot.reply_to(message, 'No video links found.')
         return
     unique_urls = list(set(urls))  # Killing duplicates
     download_msg = bot.reply_to(message, 'Downloading... 🕐')
