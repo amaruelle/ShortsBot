@@ -13,6 +13,7 @@ if not token:
 
 bot = telebot.TeleBot(token)
 
+
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
     welcome_text = (
@@ -23,6 +24,7 @@ def send_welcome(message):
         "Let's get started! 🚀"
     )
     bot.reply_to(message, welcome_text)
+
 
 def get_direct_video_url(url):
     api_endpoint = "https://api.cobalt.tools/api/json"
@@ -49,9 +51,12 @@ def generate_random_filename(length=10):
     return ''.join(random.choice(characters) for _ in range(length)) + '.mp4'
 
 
-@bot.message_handler(func=lambda message: any(x in message.text for x in ['youtube.com/shorts/', 'youtu.be/shorts/', 'tiktok.com/', 'instagram.com/reel/']))
+@bot.message_handler(func=lambda message: any(x in message.text for x in [
+                     'youtube.com/shorts/', 'youtu.be/shorts/', 'tiktok.com/', 'instagram.com/reel/', 'twitter.com/']))
 def handle_message(message):
-    urls = re.findall(r'(https?://(?:www\.)?(?:youtube\.com/shorts/|youtu\.be/shorts/|tiktok\.com/|instagram\.com/reel/)\S+)', message.text)
+    urls = re.findall(
+        r'(https?://(?:www\.)?(?:youtube\.com/shorts/|youtu\.be/shorts/|tiktok\.com/|instagram\.com/reel/|twitter\.com/[^/]+/status/)\S+)',
+        message.text)
     if not urls:
         bot.reply_to(message, 'No video links found.')
         return
@@ -69,4 +74,10 @@ def handle_message(message):
             bot.reply_to(message, f"There is an issue: {e}")
 
 
-bot.polling(none_stop=True)
+try:
+    bot.infinity_polling(timeout=10, long_polling_timeout=5)
+except (ConnectionError, ReadTimeout) as e:
+    sys.stdout.flush()
+    os.execv(sys.argv[0], sys.argv)
+else:
+    bot.infinity_polling(timeout=10, long_polling_timeout=5)
